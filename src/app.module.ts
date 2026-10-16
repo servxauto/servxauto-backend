@@ -7,6 +7,12 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { throttlerAsyncConfig } from '@/config/throttler.config';
 import { typeOrmAsyncConfig } from '@/config/typeorm.config';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { WorkersModule } from './modules/workers/workers.module';
+import { WorkshopsModule } from './modules/workshops/workshops.module';
+import { CommonModule } from './common/common.module';
+import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
 @Module({
   imports: [
@@ -16,6 +22,12 @@ import { typeOrmAsyncConfig } from '@/config/typeorm.config';
     }),
     TypeOrmModule.forRootAsync(typeOrmAsyncConfig),
     ThrottlerModule.forRootAsync(throttlerAsyncConfig),
+    CommonModule,
+    AuthModule,
+    UsersModule,
+    WorkersModule,
+    WorkshopsModule,
+    VehiclesModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
