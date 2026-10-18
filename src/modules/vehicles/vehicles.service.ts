@@ -7,12 +7,13 @@ import {
   RecordConflictException,
   RecordNotFoundException,
 } from '@/core/exceptions/app-http.exception';
-import { EntityType, Media } from '@/internals/media/entity/media.entity';
+import { Media } from '@/internals/media/entity/media.entity';
 import { MediaService } from '@/internals/media/services/media.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { VehicleLookupDto } from './dto/vehicle-lookup.dto';
+import { VehicleImage } from './entities/vehicle-image.entity';
 import { Vehicle } from './entities/vehicle.entity';
-import { VehicleLookupResult } from './types/vehicle.types';
+import type { VehicleLookupView, VehicleView } from './types/vehicles.types';
 import { VEHICLE_CATALOG } from './vehicle-catalog.constant';
 import { UploadedFileData } from '@/core/types/uploaded-file.types';
 
@@ -26,6 +27,8 @@ export class VehiclesService {
   constructor(
     @InjectRepository(Vehicle)
     private readonly vehicleRepo: Repository<Vehicle>,
+    @InjectRepository(VehicleImage)
+    private readonly vehicleImageRepo: Repository<VehicleImage>,
     private readonly mediaService: MediaService,
   ) {}
 
@@ -34,7 +37,7 @@ export class VehiclesService {
    * Until then the result is derived from the number itself, so the same
    * number always answers the same way and a client can be built against it.
    */
-  lookup({ vehicle_no }: VehicleLookupDto): VehicleLookupResult {
+  lookup({ vehicle_no }: VehicleLookupDto): VehicleLookupView {
     const seed = this.seedOf(vehicle_no);
 
     const brand = VEHICLE_CATALOG[seed % VEHICLE_CATALOG.length];
@@ -49,7 +52,7 @@ export class VehiclesService {
     };
   }
 
-  async create(userId: string, dto: CreateVehicleDto): Promise<Vehicle> {
+  async create(userId: string, dto: CreateVehicleDto): Promise<VehicleView> {
     const { image_ids = [], ...data } = dto;
 
     const images = await this.mediaService.findOwnedMany(image_ids, userId);
@@ -81,41 +84,47 @@ export class VehiclesService {
       throw error;
     }
 
-    await this.mediaService.attachToEntity(
-      image_ids,
-      vehicle.id,
-      EntityType.VEHICLE,
+    // `findOwnedMany` does not preserve order; `image_ids` does, so it sets `position`.
+    const byId = new Map(images.map((image) => [image.id, image]));
+    await this.vehicleImageRepo.save(
+      image_ids.map((mediaId, position) =>
+        this.vehicleImageRepo.create({
+          vehicle_id: vehicle.id,
+          media_id: mediaId,
+          position,
+        }),
+      ),
     );
 
-    vehicle.images = images.map(({ id, path }) => ({ id, path }));
-    return vehicle;
+    return {
+      ...vehicle,
+      images: image_ids.map((id, position) => {
+        const { path } = byId.get(id)!;
+        return { id, path, position };
+      }),
+    };
   }
 
-  async findMine(userId: string): Promise<Vehicle[]> {
+  async findMine(userId: string): Promise<VehicleView[]> {
     const vehicles = await this.vehicleRepo.find({
       where: { user_id: userId },
-      order: { created_at: 'DESC' },
+      order: {
+        created_at: 'DESC',
+        images: { position: 'ASC' },
+      },
+      relations: { images: { media: true } },
+      select: {
+        images: {
+          id: true,
+          position: true,
+          media: { id: true, path: true },
+        },
+      },
     });
-
-    // `images` cannot be a TypeORM relation: `media` points back through
-    // `entity_id` + `entity_type` with no foreign key. One query for the whole
-    // page's photos, then hand each vehicle its own.
-    const images = await this.mediaService.findByEntity(
-      vehicles.map((vehicle) => vehicle.id),
-      EntityType.VEHICLE,
-    );
-
-    for (const vehicle of vehicles) {
-      vehicle.images = images
-        .filter((image) => image.entity_id === vehicle.id)
-        .map(({ id, path }) => ({ id, path }));
-    }
-
-    return vehicles;
+    return this.parseToVehicleView(...vehicles);
   }
 
-  /** Unattached until its id is sent as `image_ids` on `POST users/me/vehicles`. */
-  uploadImage(userId: string, file: UploadedFileData): Promise<Media> {
+  async uploadImage(userId: string, file: UploadedFileData): Promise<Media> {
     return this.mediaService.upload(
       file,
       { user_id: userId },
@@ -130,5 +139,16 @@ export class VehiclesService {
       hash = (hash * 33) ^ value.charCodeAt(i);
     }
     return hash >>> 0;
+  }
+
+  private parseToVehicleView(...vehicles: Vehicle[]): VehicleView[] {
+    return vehicles.map(({ images = [], ...vehicle }) => ({
+      ...vehicle,
+      images: images.map(({ position, media }) => ({
+        id: media.id,
+        path: media.path,
+        position,
+      })),
+    }));
   }
 }

@@ -3,13 +3,13 @@ import { IsDate, IsIn, IsOptional } from 'class-validator';
 import {
   WorkshopApplicationStatus,
   WorkshopApplicationStep,
-} from '../entities/workshop-application.entity';
+} from '../types/workshops.types';
 // `import type` is required: emitDecoratorMetadata would otherwise try to emit
 // a runtime reference for a type-only export.
 import type {
   WorkshopApplicationStatusType,
   WorkshopApplicationStepType,
-} from '../entities/workshop-application.entity';
+} from '../types/workshops.types';
 
 /**
  * Body of the application update: the step the partner is on, and when each

@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
-import { EntityTypeValue, Media } from '../entity/media.entity';
+import { In, IsNull, Repository } from 'typeorm';
+import { Media } from '../entity/media.entity';
 import { UploadedFileData } from '@/core/types/uploaded-file.types';
-import { CreateMediaData } from '../media.types';
+import { CreateMediaData } from '../types/media.types';
 import { AwsS3Service } from './aws-s3.service';
 
 @Injectable()
@@ -52,30 +52,14 @@ export class MediaService {
     return this.mediaRepo.find({ where: { id: In(ids), user_id: userId } });
   }
 
-  async attachToEntity(
-    ids: string[],
-    entityId: string,
-    entityType: EntityTypeValue,
-  ): Promise<void> {
+  /**
+   * Uploads no customer owns — i.e. workshop uploads, which a workshop link
+   * table claims. Callers compare the length against `ids`.
+   */
+  findUnclaimedMany(ids: string[]): Promise<Media[]> {
     if (ids.length === 0) {
-      return;
-    }
-    await this.mediaRepo.update(
-      { id: In(ids) },
-      { entity_id: entityId, entity_type: entityType },
-    );
-  }
-
-  findByEntity(
-    entityIds: string[],
-    entityType: EntityTypeValue,
-  ): Promise<Media[]> {
-    if (entityIds.length === 0) {
       return Promise.resolve([]);
     }
-    return this.mediaRepo.find({
-      where: { entity_id: In(entityIds), entity_type: entityType },
-      order: { uploaded_at: 'ASC' },
-    });
+    return this.mediaRepo.find({ where: { id: In(ids), user_id: IsNull() } });
   }
 }

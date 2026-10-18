@@ -5,9 +5,11 @@ import {
   RecordConflictException,
   RecordNotFoundException,
 } from '@/core/exceptions/app-http.exception';
-import { EntityType, Media } from '@/internals/media/entity/media.entity';
+import { Media } from '@/internals/media/entity/media.entity';
+import { EntityType } from '@/internals/media/types/media.types';
 import { MediaService } from '@/internals/media/services/media.service';
-import { Gender, User } from './entities/user.entity';
+import { User } from './entities/user.entity';
+import { Gender } from './types/users.types';
 import { UsersService } from './users.service';
 import { UploadedFileData } from '@/core/types/uploaded-file.types';
 

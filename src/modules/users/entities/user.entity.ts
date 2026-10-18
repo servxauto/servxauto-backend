@@ -10,14 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Media } from '@/internals/media/entity/media.entity';
-
-export const Gender = {
-  MALE: 'male',
-  FEMALE: 'female',
-  OTHER: 'other',
-} as const;
-
-export type GenderType = (typeof Gender)[keyof typeof Gender];
+import type { GenderType, IUser } from '../types/users.types';
 
 /**
  * A customer account. Soft deleted: `deleted_at` is set instead of the row
@@ -25,7 +18,7 @@ export type GenderType = (typeof Gender)[keyof typeof Gender];
  * `withDeleted` is passed.
  */
 @Entity('users')
-export class User {
+export class User implements IUser {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

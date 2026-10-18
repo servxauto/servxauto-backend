@@ -7,10 +7,11 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Media } from '@/internals/media/entity/media.entity';
+import type { IVehicleImage } from '../types/vehicles.types';
 import { Vehicle } from './vehicle.entity';
 
 @Entity('vehicle_images')
-export class VehicleImage {
+export class VehicleImage implements IVehicleImage {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

@@ -33,10 +33,22 @@ export const ErrorMessage = {
     'This application has already been submitted and is awaiting review',
   WORKSHOP_APPLICATION_ALREADY_APPROVED:
     'This application has already been approved',
+  WORKSHOP_APPLICATION_LOCKED:
+    'Workshop details cannot be changed while the application is under review or approved',
+  WORKING_HOURS_INVALID: 'closes_at must be after opens_at on every open day',
+  WORKSHOP_DOCUMENT_UNKNOWN:
+    'documents has a key this application does not ask for',
+  WORKSHOP_DOCUMENT_IMAGE_COUNT:
+    'A document has fewer or more photos than it allows',
 
   // validation messages, reported by AppValidationPipe as "Invalid fields: …"
   PHONE_NO_FORMAT: 'phone_no must be in E.164 format, e.g. +919876543210',
   OTP_FORMAT: 'otp must be a number',
   VEHICLE_NO_FORMAT:
     'vehicle_number must be a valid registration number, e.g. MH12AB1234',
+  DOCUMENTS_FORMAT:
+    'documents must map each key to a list of distinct uploaded image ids',
+  GST_NO_FORMAT: 'gst_no must be a valid GSTIN, e.g. 08ABCDE1234F1Z5',
+  WORKING_HOURS_TIME_FORMAT:
+    'opens_at and closes_at must be in 24-hour HH:mm format, e.g. 09:00',
 } as const;

@@ -10,8 +10,8 @@ import {
 import { CurrentUser } from '@/core/decorators/current-user.decorator';
 import { UserAuthGuard } from '@/core/guards/user-auth.guard';
 import type { User } from '@/modules/users/entities/user.entity';
-import { CreateVehicleDto } from './dto/create-vehicle.dto';
-import { VehiclesService } from './vehicles.service';
+import { CreateVehicleDto } from '../dto/create-vehicle.dto';
+import { VehiclesService } from '../vehicles.service';
 
 @Controller('users/me/vehicles')
 @UseGuards(UserAuthGuard)

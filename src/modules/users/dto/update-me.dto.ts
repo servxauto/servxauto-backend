@@ -1,9 +1,9 @@
 import { Transform } from 'class-transformer';
 import { IsEmail, IsIn, IsOptional, IsUUID, Length } from 'class-validator';
-import { Gender } from '../entities/user.entity';
+import { Gender } from '../types/users.types';
 // `import type` is required: emitDecoratorMetadata would otherwise try to emit
 // a runtime reference for a type-only export.
-import type { GenderType } from '../entities/user.entity';
+import type { GenderType } from '../types/users.types';
 
 /**
  * Every field is optional so the app can send one at a time; `null` clears it.

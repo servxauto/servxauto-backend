@@ -1,13 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { EntityType, Media } from '../entity/media.entity';
+import { In, IsNull, Repository } from 'typeorm';
+import { Media } from '../entity/media.entity';
+import { EntityType } from '../types/media.types';
 import { AwsS3Service } from './aws-s3.service';
 import { MediaService } from './media.service';
 
 describe('MediaService', () => {
   let service: MediaService;
-  let mediaRepo: jest.Mocked<Pick<Repository<Media>, 'create' | 'save'>>;
+  let mediaRepo: jest.Mocked<
+    Pick<Repository<Media>, 'create' | 'save' | 'find'>
+  >;
   let awsS3Service: jest.Mocked<Pick<AwsS3Service, 'getObjectKey' | 'upload'>>;
 
   const file = {
@@ -21,6 +24,7 @@ describe('MediaService', () => {
     mediaRepo = {
       create: jest.fn().mockImplementation((data) => data as Media),
       save: jest.fn().mockImplementation((media) => Promise.resolve(media)),
+      find: jest.fn().mockResolvedValue([]),
     };
     awsS3Service = {
       getObjectKey: jest.fn().mockReturnValue('avatars/me-abc123.png'),
@@ -81,6 +85,21 @@ describe('MediaService', () => {
         service.upload(file, { user_id: 'u1' }, 'avatars'),
       ).rejects.toThrow('bucket unreachable');
       expect(mediaRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findUnclaimedMany', () => {
+    it('only matches uploads no customer owns', async () => {
+      await service.findUnclaimedMany(['m1', 'm2']);
+
+      expect(mediaRepo.find).toHaveBeenCalledWith({
+        where: { id: In(['m1', 'm2']), user_id: IsNull() },
+      });
+    });
+
+    it('skips the query when there is nothing to look up', async () => {
+      await expect(service.findUnclaimedMany([])).resolves.toEqual([]);
+      expect(mediaRepo.find).not.toHaveBeenCalled();
     });
   });
 });

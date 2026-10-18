@@ -10,10 +10,10 @@ import {
   Matches,
 } from 'class-validator';
 import { ErrorMessage } from '@/common/constants/error-messages.constant';
-import { FuelType } from '../types/vehicle.types';
+import { FuelType } from '../types/vehicles.types';
 // `import type` is required: emitDecoratorMetadata would otherwise try to emit
 // a runtime reference for a type-only export.
-import type { FuelTypeValue } from '../types/vehicle.types';
+import type { FuelTypeValue } from '../types/vehicles.types';
 import { VEHICLE_NO_REGEX } from './vehicle-lookup.dto';
 
 export class CreateVehicleDto {

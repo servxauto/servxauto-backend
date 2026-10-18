@@ -44,7 +44,9 @@ describe('AuthWorkerService', () => {
         { provide: OtpService, useValue: otpService },
         {
           provide: JwtService,
-          useValue: { sign: jest.fn().mockReturnValue('signed.jwt.token') },
+          useValue: {
+            signAsync: jest.fn().mockResolvedValue('signed.jwt.token'),
+          },
         },
       ],
     }).compile();

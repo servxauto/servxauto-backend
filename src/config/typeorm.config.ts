@@ -21,6 +21,6 @@ export const typeOrmAsyncConfig: TypeOrmModuleAsyncOptions = {
       join(__dirname, 'seeders', '*{.ts,.js}'),
     ],
     synchronize: false,
-    logging: config.get('NODE_ENV') === 'development',
+    // logging: config.get('NODE_ENV') === 'development',
   }),
 };

@@ -17,6 +17,7 @@ import {
 } from './types/auth-workshop.types';
 import { Workshop } from '@/modules/workshops/entities/workshop.entity';
 import { WorkshopApplicationService } from '@/modules/workshops/services/workshop-application.service';
+import { WorkshopsService } from '@/modules/workshops/services/workshops.service';
 
 @Injectable()
 export class AuthWorkshopService {
@@ -26,6 +27,7 @@ export class AuthWorkshopService {
     private readonly otpService: OtpService,
     private readonly jwtService: JwtService,
     private readonly applicationService: WorkshopApplicationService,
+    private readonly workshopsService: WorkshopsService,
   ) {}
 
   async sendOtp(dto: AuthWorkshopSendOtpDto): Promise<WorkshopSendOtpResult> {
@@ -69,10 +71,15 @@ export class AuthWorkshopService {
       (await this.workshopRepo.save(
         this.workshopRepo.create({ phone_no: dto.phone_no }),
       ));
-    if (!existing) {
-      await this.applicationService.create(workshop.id);
-    }
+    // `create` returns the existing application, so this also repairs an
+    // account that somehow has none.
+    const application = await this.applicationService.create(workshop.id);
     const token = await this.jwtService.signAsync({ sub: workshop.id });
-    return { workshop, is_new_user: !existing, token };
+    return {
+      workshop: await this.workshopsService.findById(workshop.id),
+      application,
+      is_new_user: !existing,
+      token,
+    };
   }
 }

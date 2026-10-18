@@ -7,7 +7,8 @@ import {
   RecordConflictException,
   RecordNotFoundException,
 } from '@/core/exceptions/app-http.exception';
-import { EntityType, Media } from '@/internals/media/entity/media.entity';
+import { Media } from '@/internals/media/entity/media.entity';
+import { EntityType } from '@/internals/media/types/media.types';
 import { MediaService } from '@/internals/media/services/media.service';
 import { UserUpdateMeDto } from './dto/update-me.dto';
 import { User } from './entities/user.entity';

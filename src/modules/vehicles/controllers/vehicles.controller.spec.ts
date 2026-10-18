@@ -2,9 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Media } from '@/internals/media/entity/media.entity';
 import { User } from '@/modules/users/entities/user.entity';
 import { UserAuthGuard } from '@/core/guards/user-auth.guard';
-import { FuelType, VehicleLookupResult } from './types/vehicle.types';
+import { FuelType, VehicleLookupView } from '../types/vehicles.types';
 import { VehiclesController } from './vehicles.controller';
-import { VehiclesService } from './vehicles.service';
+import { VehiclesService } from '../vehicles.service';
 import { UploadedFileData } from '@/core/types/uploaded-file.types';
 
 describe('VehiclesController', () => {
@@ -27,7 +27,7 @@ describe('VehiclesController', () => {
   });
 
   it('passes the body to the service and returns its result', () => {
-    const result: VehicleLookupResult = {
+    const result: VehicleLookupView = {
       vehicle_no: 'MH12AB1234',
       brand: 'Tata',
       model: 'Nexon',

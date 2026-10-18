@@ -13,8 +13,8 @@ import { CurrentUser } from '@/core/decorators/current-user.decorator';
 import { ImageValidationPipe } from '@/core/pipes/image-validation.pipe';
 import { UserAuthGuard } from '@/core/guards/user-auth.guard';
 import type { User } from '@/modules/users/entities/user.entity';
-import { VehicleLookupDto } from './dto/vehicle-lookup.dto';
-import { VehiclesService } from './vehicles.service';
+import { VehicleLookupDto } from '../dto/vehicle-lookup.dto';
+import { VehiclesService } from '../vehicles.service';
 import type { UploadedFileData } from '@/core/types/uploaded-file.types';
 
 /** Vehicle operations not scoped to one garage — see `UserVehiclesController` for those. */

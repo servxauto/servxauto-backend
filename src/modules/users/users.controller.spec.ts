@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Media } from '@/internals/media/entity/media.entity';
 import { UserAuthGuard } from '@/core/guards/user-auth.guard';
-import { Gender, User } from './entities/user.entity';
+import { User } from './entities/user.entity';
+import { Gender } from './types/users.types';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { UploadedFileData } from '@/core/types/uploaded-file.types';

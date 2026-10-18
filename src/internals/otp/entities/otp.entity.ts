@@ -6,6 +6,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { IOtp } from '../types/otp.types';
 
 /**
  * One pending OTP per identity. `email` and `phone` are each unique, and a row
@@ -15,7 +16,7 @@ import {
  * Re-sending a code updates the existing row rather than inserting another.
  */
 @Entity('otps')
-export class Otp {
+export class Otp implements IOtp {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

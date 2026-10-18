@@ -5,12 +5,15 @@ import {
   RecordConflictException,
   RecordNotFoundException,
 } from '@/core/exceptions/app-http.exception';
+import { WorkshopApplication } from '../entities/workshop-application.entity';
+import { WorkshopDocumentRequirement } from '../entities/workshop-document-requirement.entity';
 import {
-  WorkshopApplication,
   WorkshopApplicationStatus,
   WorkshopApplicationStep,
-} from '../entities/workshop-application.entity';
+} from '../types/workshops.types';
+import type { WorkshopView } from '../types/workshops.types';
 import { WorkshopApplicationService } from './workshop-application.service';
+import { WorkshopsService } from './workshops.service';
 
 describe('WorkshopApplicationService', () => {
   let service: WorkshopApplicationService;
@@ -21,6 +24,36 @@ describe('WorkshopApplicationService', () => {
   };
 
   const workshopId = '3f6c1d1e-6a3b-4c2f-9d10-7b4e2a9c5f81';
+  let workshopsService: { findById: jest.Mock };
+  let requirementRepo: { find: jest.Mock };
+
+  /** Everything an admin needs to review, stored. */
+  const details = (overrides: Partial<WorkshopView> = {}): WorkshopView =>
+    ({
+      id: workshopId,
+      business_name: 'Sharma Auto Works',
+      owner_name: 'Ramesh Sharma',
+      email: 'sharma@autoworks.com',
+      address: { name: 'Guru Nanak Pura' },
+      images: [{ id: 'm1' }, { id: 'm2' }],
+      document_requirements: [
+        { key: 'aadhaar_card', min_images: 2, is_required: true },
+        { key: 'pan_card', min_images: 1, is_required: true },
+        { key: 'passport', min_images: 1, is_required: false },
+      ],
+      documents: [
+        { id: 'a1', path: 'a1.png', document_key: 'aadhaar_card' },
+        { id: 'a2', path: 'a2.png', document_key: 'aadhaar_card' },
+        { id: 'p1', path: 'p1.png', document_key: 'pan_card' },
+      ],
+      working_hours: Array.from({ length: 7 }, () => ({})),
+      agreements: {
+        terms_of_service: true,
+        commission_agreement: true,
+        data_privacy_consent: true,
+      },
+      ...overrides,
+    }) as unknown as WorkshopView;
 
   beforeEach(async () => {
     applicationRepo = {
@@ -28,6 +61,8 @@ describe('WorkshopApplicationService', () => {
       create: jest.fn((v: WorkshopApplication) => v),
       save: jest.fn((v: WorkshopApplication) => Promise.resolve(v)),
     };
+    workshopsService = { findById: jest.fn().mockResolvedValue(details()) };
+    requirementRepo = { find: jest.fn().mockResolvedValue([]) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -35,6 +70,11 @@ describe('WorkshopApplicationService', () => {
         {
           provide: getRepositoryToken(WorkshopApplication),
           useValue: applicationRepo,
+        },
+        { provide: WorkshopsService, useValue: workshopsService },
+        {
+          provide: getRepositoryToken(WorkshopDocumentRequirement),
+          useValue: requirementRepo,
         },
       ],
     }).compile();
@@ -52,8 +92,46 @@ describe('WorkshopApplicationService', () => {
 
       expect(applicationRepo.create).toHaveBeenCalledWith({
         workshop_id: workshopId,
+        document_requirements: [],
       });
       expect(result.workshop_id).toBe(workshopId);
+    });
+
+    it('snapshots the active document requirements onto the new application', async () => {
+      applicationRepo.findOne.mockResolvedValue(null);
+      requirementRepo.find.mockResolvedValue([
+        {
+          id: 'r1',
+          key: 'pan_card',
+          name: 'PAN card',
+          description: 'Photo of front & back',
+          min_images: 1,
+          max_images: 2,
+          is_required: true,
+          sort_order: 1,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      ]);
+
+      const result = await service.create(workshopId);
+
+      expect(requirementRepo.find).toHaveBeenCalledWith({
+        where: { is_active: true },
+        order: { sort_order: 'ASC' },
+      });
+      expect(result.document_requirements).toEqual([
+        {
+          key: 'pan_card',
+          name: 'PAN card',
+          description: 'Photo of front & back',
+          min_images: 1,
+          max_images: 2,
+          is_required: true,
+          sort_order: 1,
+        },
+      ]);
     });
 
     it('returns the existing application instead of a second one', async () => {
@@ -202,6 +280,14 @@ describe('WorkshopApplicationService', () => {
       } as WorkshopApplication;
     };
 
+    it('does not need photos for a document that is not required', async () => {
+      applicationRepo.findOne.mockResolvedValue(completed());
+
+      await expect(service.submit(workshopId)).resolves.toMatchObject({
+        status: WorkshopApplicationStatus.SUBMITTED,
+      });
+    });
+
     it('submits a completed application', async () => {
       applicationRepo.findOne.mockResolvedValue(completed());
 
@@ -241,6 +327,47 @@ describe('WorkshopApplicationService', () => {
       );
       expect(applicationRepo.save).not.toHaveBeenCalled();
     });
+
+    it.each([
+      ['the business name', { business_name: null }],
+      ['the owner name', { owner_name: null }],
+      ['the email', { email: null }],
+      ['the address', { address: null }],
+      ['a second shop photo', { images: [{ id: 'm1' }] }],
+      [
+        'enough photos of a required document',
+        {
+          documents: [
+            { id: 'a1', path: 'a1.png', document_key: 'aadhaar_card' },
+            { id: 'p1', path: 'p1.png', document_key: 'pan_card' },
+          ],
+        },
+      ],
+      ['a full week of hours', { working_hours: [] }],
+      [
+        'an accepted agreement',
+        {
+          agreements: {
+            terms_of_service: true,
+            commission_agreement: false,
+            data_privacy_consent: true,
+          },
+        },
+      ],
+    ])(
+      'refuses to submit without %s, even with every step marked done',
+      async (_missing, overrides) => {
+        applicationRepo.findOne.mockResolvedValue(completed());
+        workshopsService.findById.mockResolvedValue(
+          details(overrides as Partial<WorkshopView>),
+        );
+
+        await expect(service.submit(workshopId)).rejects.toThrow(
+          InvalidRequestException,
+        );
+        expect(applicationRepo.save).not.toHaveBeenCalled();
+      },
+    );
 
     it('refuses a second submission', async () => {
       applicationRepo.findOne.mockResolvedValue(

@@ -1,4 +1,5 @@
-import { Workshop } from '@/modules/workshops/entities/workshop.entity';
+import type { WorkshopApplication } from '@/modules/workshops/entities/workshop-application.entity';
+import type { WorkshopView } from '@/modules/workshops/types/workshops.types';
 
 export interface WorkshopSendOtpResult {
   phone_no: string;
@@ -9,7 +10,10 @@ export interface WorkshopSendOtpResult {
 }
 
 export interface WorkshopAuthSession {
-  workshop: Workshop;
+  /** Everything entered so far on every onboarding screen, as `GET workshops/me` returns it. */
+  workshop: WorkshopView;
+  /** Step progress and review status, as `GET workshops/me/application` returns it. */
+  application: WorkshopApplication;
   token: string;
   is_new_user: boolean;
 }

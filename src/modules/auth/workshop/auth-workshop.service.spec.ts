@@ -9,7 +9,10 @@ import {
 import { OtpService } from '@/internals/otp/otp.service';
 import { JwtService } from '@nestjs/jwt';
 import { Workshop } from '@/modules/workshops/entities/workshop.entity';
+import { WorkshopApplication } from '@/modules/workshops/entities/workshop-application.entity';
 import { WorkshopApplicationService } from '@/modules/workshops/services/workshop-application.service';
+import { WorkshopsService } from '@/modules/workshops/services/workshops.service';
+import type { WorkshopView } from '@/modules/workshops/types/workshops.types';
 
 describe('AuthWorkshopService', () => {
   let service: AuthWorkshopService;
@@ -20,7 +23,13 @@ describe('AuthWorkshopService', () => {
     Pick<OtpService, 'sendPhoneOtp' | 'verifyPhoneOtp'>
   >;
 
+  let applicationService: { create: jest.Mock };
+  let workshopsService: { findById: jest.Mock };
+
   const phone_no = '+919876543210';
+  const application = { id: 'app-1' } as WorkshopApplication;
+  const view = (id: string) =>
+    ({ id, phone_no, business_name: 'Sharma Auto Works' }) as WorkshopView;
   const expiresAt = new Date('2026-10-11T09:20:00.000Z');
 
   beforeEach(async () => {
@@ -32,6 +41,10 @@ describe('AuthWorkshopService', () => {
     otpService = {
       sendPhoneOtp: jest.fn(),
       verifyPhoneOtp: jest.fn(),
+    };
+    applicationService = { create: jest.fn().mockResolvedValue(application) };
+    workshopsService = {
+      findById: jest.fn((id: string) => Promise.resolve(view(id))),
     };
     otpService.sendPhoneOtp.mockResolvedValue({
       expires_at: expiresAt,
@@ -45,12 +58,12 @@ describe('AuthWorkshopService', () => {
         { provide: OtpService, useValue: otpService },
         {
           provide: JwtService,
-          useValue: { sign: jest.fn().mockReturnValue('signed.jwt.token') },
+          useValue: {
+            signAsync: jest.fn().mockResolvedValue('signed.jwt.token'),
+          },
         },
-        {
-          provide: WorkshopApplicationService,
-          useValue: { create: jest.fn(), find: jest.fn() },
-        },
+        { provide: WorkshopApplicationService, useValue: applicationService },
+        { provide: WorkshopsService, useValue: workshopsService },
       ],
     }).compile();
 
@@ -116,7 +129,8 @@ describe('AuthWorkshopService', () => {
       const result = await service.login({ phone_no, otp: 123456 });
 
       expect(result.is_new_user).toBe(false);
-      expect(result.workshop.id).toBe('s1');
+      expect(result.workshop).toEqual(view('s1'));
+      expect(result.application).toBe(application);
       expect(result.token).toBe('signed.jwt.token');
       expect(workshopRepo.save).not.toHaveBeenCalled();
     });
@@ -134,7 +148,8 @@ describe('AuthWorkshopService', () => {
       const result = await service.login({ phone_no, otp: 123456 });
 
       expect(result.is_new_user).toBe(true);
-      expect(result.workshop.id).toBe('s2');
+      expect(result.workshop).toEqual(view('s2'));
+      expect(applicationService.create).toHaveBeenCalledWith('s2');
       expect(workshopRepo.save).toHaveBeenCalled();
     });
   });

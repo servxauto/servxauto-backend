@@ -9,18 +9,26 @@ import {
   RecordNotFoundException,
 } from '@/core/exceptions/app-http.exception';
 import { UpdateWorkshopApplicationDto } from '../dto/update-workshop-application.dto';
+import { WorkshopApplication } from '../entities/workshop-application.entity';
+import { WorkshopDocumentRequirement } from '../entities/workshop-document-requirement.entity';
+import { WorkshopsService } from './workshops.service';
 import {
-  WorkshopApplication,
   WorkshopApplicationStatus,
   WorkshopApplicationStep,
+} from '../types/workshops.types';
+import type {
   WorkshopApplicationStepType,
-} from '../entities/workshop-application.entity';
+  WorkshopView,
+} from '../types/workshops.types';
 
 @Injectable()
 export class WorkshopApplicationService {
   constructor(
     @InjectRepository(WorkshopApplication)
     private readonly applicationRepo: Repository<WorkshopApplication>,
+    @InjectRepository(WorkshopDocumentRequirement)
+    private readonly requirementRepo: Repository<WorkshopDocumentRequirement>,
+    private readonly workshopsService: WorkshopsService,
   ) {}
 
   async create(workshopId: string): Promise<WorkshopApplication> {
@@ -30,8 +38,34 @@ export class WorkshopApplicationService {
     if (existing) {
       return existing;
     }
+    // Snapshot, so editing a requirement later never changes this application's.
+    const requirements = await this.requirementRepo.find({
+      where: { is_active: true },
+      order: { sort_order: 'ASC' },
+    });
     return await this.applicationRepo.save(
-      this.applicationRepo.create({ workshop_id: workshopId }),
+      this.applicationRepo.create({
+        workshop_id: workshopId,
+        document_requirements: requirements.map(
+          ({
+            key,
+            name,
+            description,
+            min_images,
+            max_images,
+            is_required,
+            sort_order,
+          }) => ({
+            key,
+            name,
+            description,
+            min_images,
+            max_images,
+            is_required,
+            sort_order,
+          }),
+        ),
+      }),
     );
   }
 
@@ -74,7 +108,10 @@ export class WorkshopApplicationService {
       );
     }
 
-    if (this.pendingSteps(application).length > 0) {
+    if (
+      this.pendingSteps(application).length > 0 ||
+      !this.hasRequiredDetails(await this.workshopsService.findById(workshopId))
+    ) {
       throw new InvalidRequestException(
         ErrorMessage.WORKSHOP_APPLICATION_INCOMPLETE,
         ErrorCode.WORKSHOP_APPLICATION_INCOMPLETE,
@@ -110,6 +147,31 @@ export class WorkshopApplicationService {
 
     return Object.values(WorkshopApplicationStep).filter(
       (step) => !completedAt[step],
+    );
+  }
+
+  /**
+   * The step timestamps only say the partner moved on; this checks that what
+   * an admin needs to review is actually stored.
+   */
+  private hasRequiredDetails(workshop: WorkshopView): boolean {
+    const hasDocuments = workshop.document_requirements
+      .filter((requirement) => requirement.is_required)
+      .every(
+        (requirement) =>
+          workshop.documents.filter(
+            (document) => document.document_key === requirement.key,
+          ).length >= requirement.min_images,
+      );
+    return (
+      !!workshop.business_name &&
+      !!workshop.owner_name &&
+      !!workshop.email &&
+      !!workshop.address &&
+      workshop.images.length >= 2 &&
+      hasDocuments &&
+      workshop.working_hours.length === 7 &&
+      Object.values(workshop.agreements).every(Boolean)
     );
   }
 }

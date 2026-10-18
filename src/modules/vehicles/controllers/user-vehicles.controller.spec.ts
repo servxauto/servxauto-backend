@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { User } from '@/modules/users/entities/user.entity';
 import { UserAuthGuard } from '@/core/guards/user-auth.guard';
-import { Vehicle } from './entities/vehicle.entity';
 import { UserVehiclesController } from './user-vehicles.controller';
-import { FuelType } from './types/vehicle.types';
-import { VehiclesService } from './vehicles.service';
+import { FuelType } from '../types/vehicles.types';
+import type { VehicleView } from '../types/vehicles.types';
+import { VehiclesService } from '../vehicles.service';
 
 describe('UserVehiclesController', () => {
   let controller: UserVehiclesController;
@@ -36,7 +36,7 @@ describe('UserVehiclesController', () => {
       model: 'Alto K10',
       fuel_type: FuelType.PETROL,
     };
-    const vehicle = { id: 'v1' } as Vehicle;
+    const vehicle = { id: 'v1', images: [] } as unknown as VehicleView;
     service.create.mockResolvedValue(vehicle);
 
     await expect(controller.create(currentUser, dto)).resolves.toBe(vehicle);
@@ -44,7 +44,7 @@ describe('UserVehiclesController', () => {
   });
 
   it('lists the garage of the account in the token', async () => {
-    const vehicles = [{ id: 'v1' }] as Vehicle[];
+    const vehicles = [{ id: 'v1', images: [] }] as unknown as VehicleView[];
     service.findMine.mockResolvedValue(vehicles);
 
     await expect(controller.findMine(currentUser)).resolves.toBe(vehicles);

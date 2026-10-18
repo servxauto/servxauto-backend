@@ -25,5 +25,5 @@ export const AppDataSource = new DataSource({
     join(__dirname, 'seeders', '*{.ts,.js}'),
   ],
   synchronize: false,
-  logging: process.env.NODE_ENV === 'development',
+  // logging: process.env.NODE_ENV === 'development',
 });

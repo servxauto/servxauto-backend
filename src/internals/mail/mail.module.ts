@@ -15,7 +15,7 @@ import { MailTemplateFactory } from './mail-template.factory';
     MailerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         transport: {
           host: configService.getOrThrow<string>('MAIL_HOST'),
           port: Number(configService.get('MAIL_PORT', 465)),
@@ -40,7 +40,7 @@ import { MailTemplateFactory } from './mail-template.factory';
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         url: configService.getOrThrow<string>('REDIS_URL'),
       }),
     }),

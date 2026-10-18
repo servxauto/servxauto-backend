@@ -7,13 +7,14 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { IWorker } from '../types/workers.types';
 
 /**
  * A worker (mechanic) account. Identified by phone number — see
  * `auth/worker/send-otp` and `auth/worker/login`.
  */
 @Entity('workers')
-export class Worker {
+export class Worker implements IWorker {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

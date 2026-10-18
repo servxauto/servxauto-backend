@@ -5,14 +5,7 @@ import {
   Index,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-
-/** What an uploaded file is attached to. */
-export const EntityType = {
-  USER: 'USER',
-  VEHICLE: 'VEHICLE',
-} as const;
-
-export type EntityTypeValue = (typeof EntityType)[keyof typeof EntityType];
+import type { EntityTypeValue, IMedia } from '../types/media.types';
 
 /**
  * An uploaded file. `path` is the object key in the S3-compatible bucket;
@@ -23,13 +16,14 @@ export type EntityTypeValue = (typeof EntityType)[keyof typeof EntityType];
  */
 @Entity('media')
 @Index(['entity_type', 'entity_id'])
-export class Media {
+export class Media implements IMedia {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  /** The uploading customer. Null for workshop uploads, which a link table claims instead. */
   @Index()
-  @Column({ type: 'uuid' })
-  user_id: string;
+  @Column({ type: 'uuid', nullable: true })
+  user_id: string | null;
 
   @Column({ type: 'uuid', nullable: true })
   entity_id: string | null;

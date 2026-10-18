@@ -1,4 +1,4 @@
-import { FuelType, FuelTypeValue } from './types/vehicle.types';
+import { FuelType, FuelTypeValue } from './types/vehicles.types';
 
 export interface CatalogModel {
   name: string;

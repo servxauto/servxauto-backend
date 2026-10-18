@@ -9,38 +9,17 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import {
+  WorkshopApplicationStatus,
+  WorkshopApplicationStep,
+} from '../types/workshops.types';
+import type {
+  IWorkshopApplication,
+  WorkshopDocumentRequirementSnapshot,
+  WorkshopApplicationStatusType,
+  WorkshopApplicationStepType,
+} from '../types/workshops.types';
 import { Workshop } from './workshop.entity';
-
-/**
- * The six onboarding steps, in order. `current_step` holds the step the
- * partner still has to complete.
- */
-export const WorkshopApplicationStep = {
-  BUSINESS_DETAILS: 'business_details',
-  SHOP_LOCATION: 'shop_location',
-  DOCUMENTS: 'documents',
-  WORKING_HOURS: 'working_hours',
-  REVIEW: 'review',
-  AGREEMENTS: 'agreements',
-} as const;
-
-export type WorkshopApplicationStepType =
-  (typeof WorkshopApplicationStep)[keyof typeof WorkshopApplicationStep];
-
-/**
- * Where the application sits overall: the partner fills it in
- * (`IN_PROGRESS`), submits it (`SUBMITTED`), and an admin either approves or
- * rejects it. A rejected application can be edited and submitted again.
- */
-export const WorkshopApplicationStatus = {
-  IN_PROGRESS: 'in_progress',
-  SUBMITTED: 'submitted',
-  APPROVED: 'approved',
-  REJECTED: 'rejected',
-} as const;
-
-export type WorkshopApplicationStatusType =
-  (typeof WorkshopApplicationStatus)[keyof typeof WorkshopApplicationStatus];
 
 /**
  * A workshop's onboarding application — one per workshop, enforced by the
@@ -51,7 +30,7 @@ export type WorkshopApplicationStatusType =
  * has to be trusted to reconstruct it.
  */
 @Entity('workshop_applications')
-export class WorkshopApplication {
+export class WorkshopApplication implements IWorkshopApplication {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -116,6 +95,9 @@ export class WorkshopApplication {
 
   @Column({ type: 'text', nullable: true })
   rejection_reason: string | null;
+
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  document_requirements: WorkshopDocumentRequirementSnapshot[];
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

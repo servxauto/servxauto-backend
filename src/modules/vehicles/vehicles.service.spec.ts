@@ -5,10 +5,11 @@ import {
   RecordConflictException,
   RecordNotFoundException,
 } from '@/core/exceptions/app-http.exception';
-import { EntityType, Media } from '@/internals/media/entity/media.entity';
+import { Media } from '@/internals/media/entity/media.entity';
 import { MediaService } from '@/internals/media/services/media.service';
+import { VehicleImage } from './entities/vehicle-image.entity';
 import { Vehicle } from './entities/vehicle.entity';
-import { FuelType } from './types/vehicle.types';
+import { FuelType } from './types/vehicles.types';
 import { VEHICLE_CATALOG } from './vehicle-catalog.constant';
 import { VehiclesService } from './vehicles.service';
 import { UploadedFileData } from '@/core/types/uploaded-file.types';
@@ -18,12 +19,10 @@ describe('VehiclesService', () => {
   let vehicleRepo: jest.Mocked<
     Pick<Repository<Vehicle>, 'create' | 'save' | 'find'>
   >;
-  let mediaService: jest.Mocked<
-    Pick<
-      MediaService,
-      'findOwnedMany' | 'attachToEntity' | 'findByEntity' | 'upload'
-    >
+  let vehicleImageRepo: jest.Mocked<
+    Pick<Repository<VehicleImage>, 'create' | 'save'>
   >;
+  let mediaService: jest.Mocked<Pick<MediaService, 'findOwnedMany' | 'upload'>>;
 
   const imageId = '0f6b1b3a-6a2f-4f1e-8f2c-1b9a1c2d3e4f';
 
@@ -42,10 +41,12 @@ describe('VehiclesService', () => {
         .mockImplementation((v) => Promise.resolve({ id: 'v1', ...v })),
       find: jest.fn().mockResolvedValue([]),
     };
+    vehicleImageRepo = {
+      create: jest.fn().mockImplementation((data) => data as VehicleImage),
+      save: jest.fn().mockImplementation((rows) => Promise.resolve(rows)),
+    };
     mediaService = {
       findOwnedMany: jest.fn().mockResolvedValue([]),
-      attachToEntity: jest.fn().mockResolvedValue(undefined),
-      findByEntity: jest.fn().mockResolvedValue([]),
       upload: jest.fn(),
     };
 
@@ -53,6 +54,10 @@ describe('VehiclesService', () => {
       providers: [
         VehiclesService,
         { provide: getRepositoryToken(Vehicle), useValue: vehicleRepo },
+        {
+          provide: getRepositoryToken(VehicleImage),
+          useValue: vehicleImageRepo,
+        },
         { provide: MediaService, useValue: mediaService },
       ],
     }).compile();
@@ -109,21 +114,26 @@ describe('VehiclesService', () => {
       expect(result.id).toBe('v1');
     });
 
-    it('attaches the photos to the saved vehicle', async () => {
-      const image = { id: imageId } as Media;
-      mediaService.findOwnedMany.mockResolvedValue([image]);
+    it('links the photos to the saved vehicle in the order they were sent', async () => {
+      const other = 'aaaaaaaa-6a2f-4f1e-8f2c-1b9a1c2d3e4f';
+      mediaService.findOwnedMany.mockResolvedValue([
+        { id: imageId, path: 'a.png' } as Media,
+        { id: other, path: 'b.png' } as Media,
+      ]);
 
       const result = await service.create('u1', {
         ...dto,
-        image_ids: [imageId],
+        image_ids: [other, imageId],
       });
 
-      expect(mediaService.attachToEntity).toHaveBeenCalledWith(
-        [imageId],
-        'v1',
-        EntityType.VEHICLE,
-      );
-      expect(result.images).toEqual([image]);
+      expect(vehicleImageRepo.save).toHaveBeenCalledWith([
+        { vehicle_id: 'v1', media_id: other, position: 0 },
+        { vehicle_id: 'v1', media_id: imageId, position: 1 },
+      ]);
+      expect(result.images).toEqual([
+        { id: other, path: 'b.png', position: 0 },
+        { id: imageId, path: 'a.png', position: 1 },
+      ]);
     });
 
     it('refuses photos that are not the uploader’s', async () => {
@@ -162,27 +172,38 @@ describe('VehiclesService', () => {
 
       expect(vehicleRepo.find).toHaveBeenCalledWith({
         where: { user_id: 'u1' },
-        order: { created_at: 'DESC' },
+        order: { created_at: 'DESC', images: { position: 'ASC' } },
+        relations: { images: { media: true } },
+        // `images.id` must be selected, or TypeORM cannot build the link rows.
+        select: {
+          images: {
+            id: true,
+            position: true,
+            media: { id: true, path: true },
+          },
+        },
       });
     });
 
-    it('hands each vehicle its own photos', async () => {
-      const vehicles = [{ id: 'v1' }, { id: 'v2' }] as Vehicle[];
-      vehicleRepo.find.mockResolvedValue(vehicles);
-      mediaService.findByEntity.mockResolvedValue([
-        { id: 'm1', entity_id: 'v1' } as Media,
-        { id: 'm2', entity_id: 'v2' } as Media,
-        { id: 'm3', entity_id: 'v1' } as Media,
-      ]);
+    it('reduces each photo to its media id, path and position', async () => {
+      vehicleRepo.find.mockResolvedValue([
+        {
+          id: 'v1',
+          images: [
+            { position: 0, media: { id: 'm1', path: 'a.png', user_id: 'u1' } },
+            { position: 1, media: { id: 'm2', path: 'b.png', user_id: 'u1' } },
+          ],
+        },
+        { id: 'v2' },
+      ] as unknown as Vehicle[]);
 
       const result = await service.findMine('u1');
 
-      expect(mediaService.findByEntity).toHaveBeenCalledWith(
-        ['v1', 'v2'],
-        EntityType.VEHICLE,
-      );
-      expect(result[0].images?.map((i) => i.id)).toEqual(['m1', 'm3']);
-      expect(result[1].images?.map((i) => i.id)).toEqual(['m2']);
+      expect(result[0].images).toEqual([
+        { id: 'm1', path: 'a.png', position: 0 },
+        { id: 'm2', path: 'b.png', position: 1 },
+      ]);
+      expect(result[1].images).toEqual([]);
     });
   });
 
@@ -204,14 +225,6 @@ describe('VehiclesService', () => {
         { user_id: 'u1' },
         'vehicles',
       );
-    });
-
-    it('leaves the photo unattached until a vehicle claims it', async () => {
-      mediaService.upload.mockResolvedValue({ id: 'm1' } as Media);
-
-      await service.uploadImage('u1', {} as UploadedFileData);
-
-      expect(mediaService.attachToEntity).not.toHaveBeenCalled();
     });
   });
 });

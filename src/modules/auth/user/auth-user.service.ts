@@ -3,7 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthUserLoginDto } from './dto/auth-user-login.dto';
 import { AuthUserSendOtpDto } from './dto/auth-user-send-otp.dto';
-import { AppUnauthorizedException } from '@/core/exceptions/app-http.exception';
+import {
+  AppUnauthorizedException,
+  RecordNotFoundException,
+} from '@/core/exceptions/app-http.exception';
 import { ErrorCode } from '@/common/constants/error-codes.constant';
 import { ErrorMessage } from '@/common/constants/error-messages.constant';
 import { OtpService } from '@/internals/otp/otp.service';
@@ -21,6 +24,18 @@ export class AuthUserService {
   ) {}
 
   async sendOtp(dto: AuthUserSendOtpDto): Promise<UserSendOtpResult> {
+    if (dto.check_existance ?? true) {
+      const user = await this.userRepo.findOne({
+        where: { phone_no: dto.phone_no },
+        select: { id: true },
+      });
+      if (!user) {
+        throw new RecordNotFoundException(
+          ErrorMessage.USER_NOT_FOUND,
+          ErrorCode.USER_NOT_FOUND,
+        );
+      }
+    }
     const otp = await this.otpService.sendPhoneOtp(dto.phone_no);
     return {
       phone_no: dto.phone_no,
