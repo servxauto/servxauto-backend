@@ -118,6 +118,27 @@ describe('AuthUserService', () => {
       expect(userRepo.save).not.toHaveBeenCalled();
     });
 
+    it('returns the avatar with the account', async () => {
+      otpService.verifyPhoneOtp.mockResolvedValue(true);
+      userRepo.findOne.mockResolvedValue({
+        id: 'u1',
+        phone_no,
+        avatar: { id: 'm1', path: 'https://cdn.test/a.png' },
+      } as User);
+
+      const result = await service.login({ phone_no, otp: 123456 });
+
+      expect(result.user.avatar).toEqual({
+        id: 'm1',
+        path: 'https://cdn.test/a.png',
+      });
+      expect(userRepo.findOne).toHaveBeenCalledWith({
+        where: { phone_no },
+        relations: { avatar: true },
+        select: { avatar: { id: true, path: true } },
+      });
+    });
+
     it('registers the account on first login', async () => {
       otpService.verifyPhoneOtp.mockResolvedValue(true);
       userRepo.findOne.mockResolvedValue(null);
@@ -132,6 +153,8 @@ describe('AuthUserService', () => {
 
       expect(result.is_new_user).toBe(true);
       expect(result.user.id).toBe('u2');
+      // A new account has no avatar yet, but the key is still in the response.
+      expect(userRepo.create).toHaveBeenCalledWith({ phone_no, avatar: null });
       expect(userRepo.save).toHaveBeenCalled();
     });
   });

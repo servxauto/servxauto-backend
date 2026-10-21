@@ -56,13 +56,16 @@ export class AuthUserService {
         ErrorCode.OTP_INVALID,
       );
     }
+    // Same shape as `GET users/me`, so the app can render the profile straight from login.
     const existing = await this.userRepo.findOne({
       where: { phone_no: dto.phone_no },
+      relations: { avatar: true },
+      select: { avatar: { id: true, path: true } },
     });
     const user =
       existing ??
       (await this.userRepo.save(
-        this.userRepo.create({ phone_no: dto.phone_no }),
+        this.userRepo.create({ phone_no: dto.phone_no, avatar: null }),
       ));
     const token = await this.jwtService.signAsync({ sub: user.id });
     return { user, is_new_user: !existing, token };
