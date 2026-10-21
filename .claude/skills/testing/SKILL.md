@@ -9,5 +9,5 @@ description: Testing patterns for this NestJS repo (unit specs with @nestjs/test
 - Build the unit under test with `Test.createTestingModule`, mocking repositories via `{ provide: getRepositoryToken(Entity), useValue: { findOne: jest.fn(), ... } }`. Do not hit a real database in unit tests.
 - Test services for business rules and error paths: assert the specific exception class (e.g. `RecordNotFoundException`) and its `error_code`, not just that something threw.
 - Controllers get thin tests only (delegation, param handling).
-- e2e: `test/*.e2e-spec.ts`, config `test/jest-e2e.json`, run with `npm run test:e2e`. Remember the global prefix/versioning/pipe/filters are set in `main.ts`, not `AppModule`, so e2e setup must apply them (`setGlobalPrefix('api')`, versioning, `AppValidationPipe`, filters) to match production responses.
+- e2e: `test/*.e2e-spec.ts`, config `test/jest-e2e.json`, run with `npm run test:e2e`. Remember the versioning/pipe/filters are set in `main.ts`, not `AppModule`, so e2e setup must apply them (URI versioning with default `v1`, `AppValidationPipe`, filters) to match production responses. There is no global prefix, so routes are `/v1/...`.
 - Always cover: happy path, not-found, conflict/duplicate, validation failure, and permission failure where applicable.

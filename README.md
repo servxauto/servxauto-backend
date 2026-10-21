@@ -16,7 +16,7 @@ npm run migration:run
 npm run start:dev
 ```
 
-The API is served at `http://localhost:3000/api/v1`.
+The API is served at `http://localhost:3000/v1` (the unversioned health check is at `http://localhost:3000/health`).
 
 All environment variables are listed in `.env.example`.
 

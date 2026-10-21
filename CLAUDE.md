@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-NestJS 11 + TypeORM + PostgreSQL API (Node >= 22). See `README.md` for setup; env vars are listed in `.env.example`. Served at `http://localhost:3000/api/v1`.
+NestJS 11 + TypeORM + PostgreSQL API (Node >= 22). See `README.md` for setup; env vars are listed in `.env.example`. Served at `http://localhost:3000/v1`.
 
 ## Commands
 
@@ -19,7 +19,7 @@ NestJS 11 + TypeORM + PostgreSQL API (Node >= 22). See `README.md` for setup; en
 
 ## Architecture
 
-- **Bootstrap (`src/main.ts`)**: global prefix `api` + URI versioning (default `v1`), helmet, `AppValidationPipe`, and the exception filters `AllExceptionsFilter` then `HttpExceptionFilter`. `TRUST_PROXY` controls Express `trust proxy` (matters for throttler IP detection). CORS is currently commented out.
+- **Bootstrap (`src/main.ts`)**: no global prefix, URI versioning (default `v1`; `GET /health` is version-neutral), helmet, `AppValidationPipe`, and the exception filters `AllExceptionsFilter` then `HttpExceptionFilter`. `TRUST_PROXY` controls Express `trust proxy` (matters for throttler IP detection). CORS is currently commented out.
 - **`src/app.module.ts`**: global `ConfigModule`, async TypeORM and Throttler config from `src/config/`, and `ThrottlerGuard` registered globally via `APP_GUARD`.
 - **Feature code** goes in `src/modules/<domain>/` (controller, service, `dto/`, `entities/`) — the folder does not exist yet. Entities are auto-discovered by the glob `**/*.entity{.ts,.js}`; migrations are loaded from `src/database/migrations` and `src/database/seeders` (seeders run as migrations).
 - **Two DB configs must stay in sync**: `src/config/typeorm.config.ts` (runtime, via `ConfigService`) and `src/database/data-source.ts` (TypeORM CLI, via `dotenv`/`process.env`).
