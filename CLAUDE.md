@@ -11,6 +11,7 @@ NestJS 11 + TypeORM + PostgreSQL API (Node >= 22). See `README.md` for setup; en
 - `npm run lint` (auto-fixes) / `npm run lint:check` (CI, no fix) / `npm run typecheck`
 - `npm test` — unit tests (Jest, `src/**/*.spec.ts`); single test: `npx jest src/path/file.spec.ts` or `npx jest -t "name"`
 - `npm run test:e2e` — e2e tests in `test/` (own config `test/jest-e2e.json`)
+- Git hooks (husky, `.husky/`): pre-commit runs `lint-staged` (`eslint --fix` on staged `.ts`), pre-push runs `typecheck` + `test`. Fix failures rather than bypassing with `--no-verify`.
 - Migrations (`synchronize` is off; schema changes must go through migrations):
   - `npm run migration:generate -- src/database/migrations/<Name>` (diffs entities against the DB)
   - `npm run migration:create -- src/database/migrations/<Name>` (empty)

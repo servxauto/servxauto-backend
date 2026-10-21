@@ -30,6 +30,13 @@ All environment variables are listed in `.env.example`.
 | `npm run typecheck` | Type-check without emitting |
 | `npm test` / `npm run test:e2e` | Unit / end-to-end tests |
 
+## Git hooks
+
+[husky](https://typicode.github.io/husky) installs the hooks on `npm install`:
+
+- **pre-commit**: `lint-staged` runs `eslint --fix` (which includes Prettier) on the staged `.ts` files and re-stages the fixes; an error it cannot fix blocks the commit.
+- **pre-push**: `npm run typecheck` and `npm test`, so a push to `main` does not turn CI red.
+
 ## Database migrations
 
 Schema changes go through migrations (`synchronize` is disabled).

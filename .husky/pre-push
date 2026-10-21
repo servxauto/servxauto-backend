@@ -1,0 +1,3 @@
+# Mirrors CI, minus lint (pre-commit covers it) and build.
+npm run typecheck
+npm test
