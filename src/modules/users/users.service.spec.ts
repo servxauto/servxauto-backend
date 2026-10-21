@@ -92,6 +92,30 @@ describe('UsersService', () => {
       expect(mediaService.findOwned).toHaveBeenCalledWith(avatarId, 'u1');
     });
 
+    it('replaces an existing avatar and returns the re-read account', async () => {
+      const reread = {
+        id: 'u1',
+        avatar_id: avatarId,
+        avatar: { id: avatarId, path: 'https://cdn.test/a.png' },
+      } as User;
+      userRepo.findOne
+        .mockResolvedValueOnce({ id: 'u1', phone_no, avatar_id: 'old' } as User)
+        .mockResolvedValueOnce(reread);
+      mediaService.findOwned.mockResolvedValue({ id: avatarId } as Media);
+      userRepo.save.mockImplementation((user) => Promise.resolve(user as User));
+
+      await expect(
+        service.updateById('u1', { avatar_id: avatarId }),
+      ).resolves.toBe(reread);
+      // A loaded `avatar` relation would win over `avatar_id` on save.
+      expect(userRepo.findOne).toHaveBeenNthCalledWith(1, {
+        where: { id: 'u1' },
+      });
+      const saved = userRepo.save.mock.calls[0][0];
+      expect(saved).toMatchObject({ avatar_id: avatarId });
+      expect(saved).not.toHaveProperty('avatar');
+    });
+
     it('clears the avatar id without looking a file up', async () => {
       userRepo.findOne.mockResolvedValue({
         id: 'u1',

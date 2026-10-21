@@ -43,7 +43,15 @@ export class UsersService {
   }
 
   async updateById(userId: string, dto: UserUpdateMeDto): Promise<User> {
-    const user = await this.findById(userId);
+    // Loaded without `avatar`: on save a loaded relation outranks `avatar_id`,
+    // so a changed or cleared avatar would otherwise be silently kept.
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new RecordNotFoundException(
+        ErrorMessage.USER_NOT_FOUND,
+        ErrorCode.USER_NOT_FOUND,
+      );
+    }
     if (dto.avatar_id) {
       const media = await this.mediaService.findOwned(dto.avatar_id, userId);
       if (!media) {
@@ -55,7 +63,7 @@ export class UsersService {
     }
     Object.assign(user, dto);
     try {
-      return await this.userRepo.save(user);
+      await this.userRepo.save(user);
     } catch (error: unknown) {
       if (
         error instanceof QueryFailedError &&
@@ -69,6 +77,9 @@ export class UsersService {
       }
       throw error;
     }
+    // Re-read so the response carries the new avatar, and every field rather
+    // than only those sent (unsent DTO fields are own `undefined` properties).
+    return this.findById(userId);
   }
 
   /** Unlinked until `PATCH users/me` sends the id, so an abandoned upload never changes the profile. */
