@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import {
+  ErrorCode,
+  ErrorCodeType,
+} from '@/common/constants/error-codes.constant';
+import {
+  AppHttpException,
   RecordConflictException,
   RecordNotFoundException,
 } from '@/core/exceptions/app-http.exception';
@@ -17,14 +22,19 @@ import { UploadedFileData } from '@/core/types/uploaded-file.types';
 describe('VehiclesService', () => {
   let service: VehiclesService;
   let vehicleRepo: jest.Mocked<
-    Pick<Repository<Vehicle>, 'create' | 'save' | 'find'>
+    Pick<
+      Repository<Vehicle>,
+      'create' | 'save' | 'find' | 'exists' | 'findOneOrFail' | 'softDelete'
+    >
   >;
   let vehicleImageRepo: jest.Mocked<
     Pick<Repository<VehicleImage>, 'create' | 'save'>
   >;
+  let manager: { update: jest.Mock; delete: jest.Mock; insert: jest.Mock };
   let mediaService: jest.Mocked<Pick<MediaService, 'findOwnedMany' | 'upload'>>;
 
   const imageId = '0f6b1b3a-6a2f-4f1e-8f2c-1b9a1c2d3e4f';
+  const vehicleId = '5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f';
 
   const dto = {
     vehicle_no: 'RJ22AD1234',
@@ -33,6 +43,22 @@ describe('VehiclesService', () => {
     fuel_type: FuelType.PETROL,
   };
 
+  /** Checks the class and the `error_code` the client sees. */
+  async function expectAppError(
+    promise: Promise<unknown>,
+    type: abstract new (...args: never[]) => AppHttpException,
+    errorCode: ErrorCodeType,
+  ): Promise<void> {
+    const error: unknown = await promise.then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(type);
+    expect((error as AppHttpException).getResponse()).toMatchObject({
+      error_code: errorCode,
+    });
+  }
+
   beforeEach(async () => {
     vehicleRepo = {
       create: jest.fn().mockImplementation((data) => data as Vehicle),
@@ -40,10 +66,19 @@ describe('VehiclesService', () => {
         .fn()
         .mockImplementation((v) => Promise.resolve({ id: 'v1', ...v })),
       find: jest.fn().mockResolvedValue([]),
+      exists: jest.fn().mockResolvedValue(true),
+      findOneOrFail: jest.fn().mockResolvedValue({ id: vehicleId, images: [] }),
+      softDelete: jest.fn(),
     };
     vehicleImageRepo = {
       create: jest.fn().mockImplementation((data) => data as VehicleImage),
       save: jest.fn().mockImplementation((rows) => Promise.resolve(rows)),
+    };
+    manager = { update: jest.fn(), delete: jest.fn(), insert: jest.fn() };
+    const dataSource = {
+      transaction: jest.fn((run: (m: typeof manager) => Promise<unknown>) =>
+        run(manager),
+      ),
     };
     mediaService = {
       findOwnedMany: jest.fn().mockResolvedValue([]),
@@ -58,6 +93,7 @@ describe('VehiclesService', () => {
           provide: getRepositoryToken(VehicleImage),
           useValue: vehicleImageRepo,
         },
+        { provide: DataSource, useValue: dataSource },
         { provide: MediaService, useValue: mediaService },
       ],
     }).compile();
@@ -204,6 +240,135 @@ describe('VehiclesService', () => {
         { id: 'm2', path: 'b.png', position: 1 },
       ]);
       expect(result[1].images).toEqual([]);
+    });
+  });
+
+  describe('update', () => {
+    it('404s for a vehicle outside the signed-in customer’s garage', async () => {
+      vehicleRepo.exists.mockResolvedValue(false);
+
+      await expectAppError(
+        service.update('u1', vehicleId, { brand: 'Tata' }),
+        RecordNotFoundException,
+        ErrorCode.VEHICLE_NOT_FOUND,
+      );
+      expect(vehicleRepo.exists).toHaveBeenCalledWith({
+        where: { id: vehicleId, user_id: 'u1' },
+      });
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('changes only the fields that were sent and leaves the photos alone', async () => {
+      await service.update('u1', vehicleId, { brand: 'Tata', model: 'Punch' });
+
+      expect(manager.update).toHaveBeenCalledWith(
+        Vehicle,
+        { id: vehicleId },
+        { brand: 'Tata', model: 'Punch' },
+      );
+      expect(manager.delete).not.toHaveBeenCalled();
+      expect(mediaService.findOwnedMany).not.toHaveBeenCalled();
+    });
+
+    it('replaces the photo list in the order it was sent', async () => {
+      const other = 'aaaaaaaa-6a2f-4f1e-8f2c-1b9a1c2d3e4f';
+      mediaService.findOwnedMany.mockResolvedValue([
+        { id: imageId } as Media,
+        { id: other } as Media,
+      ]);
+
+      await service.update('u1', vehicleId, { image_ids: [other, imageId] });
+
+      expect(manager.update).not.toHaveBeenCalled();
+      expect(manager.delete).toHaveBeenCalledWith(VehicleImage, {
+        vehicle_id: vehicleId,
+      });
+      expect(manager.insert).toHaveBeenCalledWith(VehicleImage, [
+        { vehicle_id: vehicleId, media_id: other, position: 0 },
+        { vehicle_id: vehicleId, media_id: imageId, position: 1 },
+      ]);
+    });
+
+    it('removes every photo when sent an empty list', async () => {
+      await service.update('u1', vehicleId, { image_ids: [] });
+
+      expect(manager.delete).toHaveBeenCalledWith(VehicleImage, {
+        vehicle_id: vehicleId,
+      });
+      expect(manager.insert).not.toHaveBeenCalled();
+    });
+
+    it('refuses photos that are not the uploader’s', async () => {
+      mediaService.findOwnedMany.mockResolvedValue([]);
+
+      await expectAppError(
+        service.update('u1', vehicleId, { image_ids: [imageId] }),
+        RecordNotFoundException,
+        ErrorCode.MEDIA_NOT_FOUND,
+      );
+      expect(manager.delete).not.toHaveBeenCalled();
+    });
+
+    it('reports a plate already in the garage as a conflict', async () => {
+      manager.update.mockRejectedValue(
+        new QueryFailedError('update', [], {
+          code: '23505',
+        } as unknown as Error),
+      );
+
+      await expectAppError(
+        service.update('u1', vehicleId, { vehicle_no: 'RJ22AD1234' }),
+        RecordConflictException,
+        ErrorCode.VEHICLE_ALREADY_ADDED,
+      );
+    });
+
+    it('returns the vehicle as it now is, photos reduced to id, path and position', async () => {
+      vehicleRepo.findOneOrFail.mockResolvedValue({
+        id: vehicleId,
+        brand: 'Tata',
+        images: [
+          { position: 0, media: { id: 'm1', path: 'a.png', user_id: 'u1' } },
+        ],
+      } as unknown as Vehicle);
+
+      const result = await service.update('u1', vehicleId, { brand: 'Tata' });
+
+      expect(result).toEqual({
+        id: vehicleId,
+        brand: 'Tata',
+        images: [{ id: 'm1', path: 'a.png', position: 0 }],
+      });
+    });
+  });
+
+  describe('remove', () => {
+    it('soft deletes the vehicle, scoped to the signed-in customer', async () => {
+      vehicleRepo.softDelete.mockResolvedValue({
+        affected: 1,
+        raw: [],
+        generatedMaps: [],
+      });
+
+      await expect(service.remove('u1', vehicleId)).resolves.toBeUndefined();
+      expect(vehicleRepo.softDelete).toHaveBeenCalledWith({
+        id: vehicleId,
+        user_id: 'u1',
+      });
+    });
+
+    it('404s when nothing matched: someone else’s, missing or already deleted', async () => {
+      vehicleRepo.softDelete.mockResolvedValue({
+        affected: 0,
+        raw: [],
+        generatedMaps: [],
+      });
+
+      await expectAppError(
+        service.remove('u1', vehicleId),
+        RecordNotFoundException,
+        ErrorCode.VEHICLE_NOT_FOUND,
+      );
     });
   });
 

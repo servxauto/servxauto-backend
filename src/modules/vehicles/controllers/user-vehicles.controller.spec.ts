@@ -8,7 +8,9 @@ import { VehiclesService } from '../vehicles.service';
 
 describe('UserVehiclesController', () => {
   let controller: UserVehiclesController;
-  let service: jest.Mocked<Pick<VehiclesService, 'create' | 'findMine'>>;
+  let service: jest.Mocked<
+    Pick<VehiclesService, 'create' | 'findMine' | 'update' | 'remove'>
+  >;
 
   const currentUser = { id: 'u1' } as User;
 
@@ -16,6 +18,8 @@ describe('UserVehiclesController', () => {
     service = {
       create: jest.fn(),
       findMine: jest.fn(),
+      update: jest.fn(),
+      remove: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -49,5 +53,23 @@ describe('UserVehiclesController', () => {
 
     await expect(controller.findMine(currentUser)).resolves.toBe(vehicles);
     expect(service.findMine).toHaveBeenCalledWith('u1');
+  });
+
+  it('updates the vehicle within the garage of the account in the token', async () => {
+    const dto = { brand: 'Tata' };
+    const vehicle = { id: 'v1', images: [] } as unknown as VehicleView;
+    service.update.mockResolvedValue(vehicle);
+
+    await expect(controller.update(currentUser, 'v1', dto)).resolves.toBe(
+      vehicle,
+    );
+    expect(service.update).toHaveBeenCalledWith('u1', 'v1', dto);
+  });
+
+  it('removes the vehicle from the garage of the account in the token', async () => {
+    service.remove.mockResolvedValue(undefined);
+
+    await expect(controller.remove(currentUser, 'v1')).resolves.toBeUndefined();
+    expect(service.remove).toHaveBeenCalledWith('u1', 'v1');
   });
 });

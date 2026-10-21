@@ -18,6 +18,7 @@ export const ErrorMessage = {
   EMAIL_ALREADY_IN_USE: 'This email is already linked to another account',
   MEDIA_NOT_FOUND: 'Uploaded file not found',
   VEHICLE_ALREADY_ADDED: 'This vehicle is already in your garage',
+  VEHICLE_NOT_FOUND: 'Vehicle not found',
   FILE_REQUIRED: 'A file is required',
   IMAGE_TYPE: 'File must be a JPEG, PNG or WebP image',
   IMAGE_TOO_LARGE: 'Image is too large',
